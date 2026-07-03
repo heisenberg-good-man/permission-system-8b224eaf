@@ -47,6 +47,27 @@
             <div class="stat-label">已约聊</div>
           </div>
         </div>
+        <div class="stat-card">
+          <div class="stat-icon">📤</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.sent_offer_count }}</div>
+            <div class="stat-label">待回应Offer</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.accepted_offer_count }}</div>
+            <div class="stat-label">已接受Offer</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">❌</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.rejected_offer_count }}</div>
+            <div class="stat-label">已拒绝Offer</div>
+          </div>
+        </div>
       </div>
       <router-view @update-stats="loadStats" />
     </main>

@@ -80,6 +80,8 @@ npm run dev
 | `/api/messages` | GET/POST | 获取消息列表/发送消息 |
 | `/api/interviews` | GET/POST | 获取面试列表/创建面试安排 |
 | `/api/interviews/{id}` | GET/PUT | 面试详情/更新面试安排 |
+| `/api/offers` | GET/POST | 获取Offer列表/创建Offer |
+| `/api/offers/{id}` | GET/PUT | Offer详情/更新Offer |
 | `/api/stats/{user_id}` | GET | 获取统计数据 |
 
 ## 模拟账号
@@ -120,6 +122,10 @@ npm run dev
 - 待确认面试数
 - 今日面试数
 - 已完成面试数
+- 待发送Offer数
+- 待回应Offer数
+- 已接受Offer数
+- 已拒绝Offer数
 
 ### 面试状态流转
 
@@ -135,4 +141,12 @@ npm run dev
 已投递 → 待沟通 → 已约聊
     ↓           ↓
    已拒绝      已拒绝
+```
+
+## Offer状态流转
+
+```
+待发送(draft) → 已发送(sent) → 候选人已接受(accepted)
+                   ↓                    ↓
+                  已撤回(withdrawn)    候选人已拒绝(rejected)
 ```

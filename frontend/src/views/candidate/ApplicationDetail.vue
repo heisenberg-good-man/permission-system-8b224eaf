@@ -207,6 +207,8 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { resumeApi, jobApi, messageApi, interviewApi, offerApi } from '../../api'
 
+const emit = defineEmits(['update-stats'])
+
 const route = useRoute()
 const { state } = useUserStore()
 
@@ -298,6 +300,7 @@ const acceptOffer = async (offer) => {
   try {
     await offerApi.updateOffer(offer.id, { ...offer, status: 'accepted' })
     loadOffers()
+    emit('update-stats')
   } catch (error) {
     console.error('Accept offer failed:', error)
   }
@@ -309,6 +312,7 @@ const rejectOffer = async (offer) => {
   try {
     await offerApi.updateOffer(offer.id, { ...offer, status: 'rejected', reject_reason: reason })
     loadOffers()
+    emit('update-stats')
   } catch (error) {
     console.error('Reject offer failed:', error)
   }

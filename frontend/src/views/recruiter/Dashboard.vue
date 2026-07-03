@@ -25,82 +25,93 @@
 
     <main class="main-content">
       <div v-if="showStats" class="stats-row">
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter')">
           <div class="stat-icon">📋</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.jobs_count }}</div>
-            <div class="stat-label">发布职位</div>
+            <div class="stat-label">在招职位</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/applications')">
           <div class="stat-icon">📥</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.resumes_count }}</div>
             <div class="stat-label">收到投递</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/applications')">
           <div class="stat-icon">⏳</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.pending_count }}</div>
             <div class="stat-label">待沟通</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/applications')">
           <div class="stat-icon">✅</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.interview_count }}</div>
             <div class="stat-label">已约聊</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/interviews')">
           <div class="stat-icon">📅</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.pending_interview_count }}</div>
             <div class="stat-label">待确认面试</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/interviews')">
           <div class="stat-icon">🕐</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.today_interview_count }}</div>
             <div class="stat-label">今日面试</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/interviews')">
           <div class="stat-icon">✓</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.completed_interview_count }}</div>
             <div class="stat-label">已完成面试</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/offers')">
           <div class="stat-icon">📝</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.draft_offer_count }}</div>
             <div class="stat-label">待发送Offer</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/offers')">
           <div class="stat-icon">📤</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.sent_offer_count }}</div>
             <div class="stat-label">待回应Offer</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/offers')">
           <div class="stat-icon">✅</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.accepted_offer_count }}</div>
             <div class="stat-label">已接受Offer</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" @click="navigateTo('/recruiter/offers')">
           <div class="stat-icon">❌</div>
           <div class="stat-info">
             <div class="stat-value">{{ stats.rejected_offer_count }}</div>
             <div class="stat-label">已拒绝Offer</div>
           </div>
+          <div class="stat-arrow">→</div>
         </div>
       </div>
       <router-view @update-stats="loadStats" />
@@ -142,6 +153,10 @@ const showStats = computed(() => {
 const handleLogout = () => {
   logout()
   router.push('/')
+}
+
+const navigateTo = (path) => {
+  router.push(path)
 }
 
 const loadStats = async () => {
@@ -260,6 +275,13 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -279,5 +301,15 @@ onMounted(() => {
 .stat-label {
   font-size: 14px;
   color: #999;
+}
+
+.stat-arrow {
+  font-size: 18px;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+.stat-card:hover .stat-arrow {
+  color: #409eff;
 }
 </style>
