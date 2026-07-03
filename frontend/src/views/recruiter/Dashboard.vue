@@ -18,6 +18,9 @@
       <div class="nav-item" :class="{ active: $route.path === '/recruiter/interviews' }">
         <router-link to="/recruiter/interviews">面试安排</router-link>
       </div>
+      <div class="nav-item" :class="{ active: $route.path === '/recruiter/offers' }">
+        <router-link to="/recruiter/offers">Offer管理</router-link>
+      </div>
     </nav>
 
     <main class="main-content">
@@ -71,6 +74,34 @@
             <div class="stat-label">已完成面试</div>
           </div>
         </div>
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.draft_offer_count }}</div>
+            <div class="stat-label">待发送Offer</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📤</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.sent_offer_count }}</div>
+            <div class="stat-label">待回应Offer</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.accepted_offer_count }}</div>
+            <div class="stat-label">已接受Offer</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">❌</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.rejected_offer_count }}</div>
+            <div class="stat-label">已拒绝Offer</div>
+          </div>
+        </div>
       </div>
       <router-view @update-stats="loadStats" />
     </main>
@@ -97,11 +128,15 @@ const stats = ref({
   interview_count: 0,
   pending_interview_count: 0,
   today_interview_count: 0,
-  completed_interview_count: 0
+  completed_interview_count: 0,
+  draft_offer_count: 0,
+  sent_offer_count: 0,
+  accepted_offer_count: 0,
+  rejected_offer_count: 0
 })
 
 const showStats = computed(() => {
-  return ['/recruiter', '/recruiter/applications', '/recruiter/interviews'].includes(route.path)
+  return ['/recruiter', '/recruiter/applications', '/recruiter/interviews', '/recruiter/offers'].includes(route.path)
 })
 
 const handleLogout = () => {

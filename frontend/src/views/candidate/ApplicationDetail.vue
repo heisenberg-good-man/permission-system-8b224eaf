@@ -126,6 +126,52 @@
       </div>
     </div>
 
+    <div class="card" v-if="offers.length > 0">
+      <h3>Offer通知</h3>
+      <div class="offer-list">
+        <div v-for="offer in offers" :key="offer.id" class="offer-card">
+          <div class="offer-header">
+            <span class="offer-title">{{ job?.title }}</span>
+            <span :class="['status-tag', `status-${offer.status}`]">{{ getOfferStatusText(offer.status) }}</span>
+          </div>
+          <div class="offer-info">
+            <div class="info-row">
+              <span class="label">薪资范围</span>
+              <span class="value">{{ offer.salary }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">入职日期</span>
+              <span class="value">{{ offer.start_date }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">工作地点</span>
+              <span class="value">{{ offer.work_location }}</span>
+            </div>
+            <div v-if="offer.probation_period" class="info-row">
+              <span class="label">试用期</span>
+              <span class="value">{{ offer.probation_period }}</span>
+            </div>
+            <div v-if="offer.department" class="info-row">
+              <span class="label">直属部门</span>
+              <span class="value">{{ offer.department }}</span>
+            </div>
+            <div v-if="offer.notes" class="info-row">
+              <span class="label">补充说明</span>
+              <span class="value">{{ offer.notes }}</span>
+            </div>
+            <div v-if="offer.reject_reason" class="info-row">
+              <span class="label">拒绝原因</span>
+              <span class="value cancel-reason">{{ offer.reject_reason }}</span>
+            </div>
+          </div>
+          <div class="offer-actions">
+            <button v-if="offer.status === 'sent'" class="btn btn-sm btn-success" @click="acceptOffer(offer)">接受Offer</button>
+            <button v-if="offer.status === 'sent'" class="btn btn-sm btn-danger" @click="rejectOffer(offer)">拒绝Offer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card message-section">
       <h3>沟通记录</h3>
       <div class="message-list">
@@ -159,7 +205,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { resumeApi, jobApi, messageApi, interviewApi } from '../../api'
+import { resumeApi, jobApi, messageApi, interviewApi, offerApi } from '../../api'
 
 const route = useRoute()
 const { state } = useUserStore()
@@ -169,6 +215,7 @@ const job = ref(null)
 const messages = ref([])
 const newMessage = ref('')
 const interviews = ref([])
+const offers = ref([])
 
 const getStatusText = (status) => {
   const map = { applied: '已投递', pending: '待沟通', interview: '已约聊', rejected: '已拒绝' }
@@ -177,6 +224,11 @@ const getStatusText = (status) => {
 
 const getInterviewStatusText = (status) => {
   const map = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' }
+  return map[status] || status
+}
+
+const getOfferStatusText = (status) => {
+  const map = { draft: '待发送', sent: '已发送', accepted: '已接受', rejected: '已拒绝', withdrawn: '已撤回' }
   return map[status] || status
 }
 
@@ -232,6 +284,36 @@ const confirmInterview = async (interview) => {
   }
 }
 
+const loadOffers = async () => {
+  if (!resume.value) return
+  try {
+    const response = await offerApi.getOffers({ resume_id: resume.value.id })
+    offers.value = response.data
+  } catch (error) {
+    console.error('Load offers failed:', error)
+  }
+}
+
+const acceptOffer = async (offer) => {
+  try {
+    await offerApi.updateOffer(offer.id, { ...offer, status: 'accepted' })
+    loadOffers()
+  } catch (error) {
+    console.error('Accept offer failed:', error)
+  }
+}
+
+const rejectOffer = async (offer) => {
+  const reason = prompt('请输入拒绝原因：')
+  if (!reason) return
+  try {
+    await offerApi.updateOffer(offer.id, { ...offer, status: 'rejected', reject_reason: reason })
+    loadOffers()
+  } catch (error) {
+    console.error('Reject offer failed:', error)
+  }
+}
+
 const loadData = async () => {
   try {
     const resumeRes = await resumeApi.getResume(route.params.id)
@@ -242,6 +324,7 @@ const loadData = async () => {
     
     loadMessages()
     loadInterviews()
+    loadOffers()
   } catch (error) {
     console.error('Failed to load data:', error)
   }

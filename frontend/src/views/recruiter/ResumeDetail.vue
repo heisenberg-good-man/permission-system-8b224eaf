@@ -109,6 +109,13 @@
         >
           创建面试安排
         </button>
+        <button 
+          v-if="resume.status === 'interview'" 
+          class="btn btn-info" 
+          @click="showOfferModal = true"
+        >
+          发起Offer
+        </button>
       </div>
     </div>
 
@@ -151,6 +158,53 @@
             <button v-if="interview.status === 'pending' || interview.status === 'confirmed'" class="btn btn-sm btn-primary" @click="editInterview(interview)">编辑</button>
             <button v-if="interview.status !== 'completed' && interview.status !== 'cancelled'" class="btn btn-sm btn-danger" @click="cancelInterview(interview)">取消</button>
             <button v-if="interview.status === 'confirmed'" class="btn btn-sm btn-success" @click="completeInterview(interview)">标记完成</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" v-if="offers.length > 0">
+      <h3>Offer安排</h3>
+      <div class="offer-list">
+        <div v-for="offer in offers" :key="offer.id" class="offer-card">
+          <div class="offer-header">
+            <span class="offer-title">{{ jobTitle }}</span>
+            <span :class="['status-tag', `status-${offer.status}`]">{{ getOfferStatusText(offer.status) }}</span>
+          </div>
+          <div class="offer-info">
+            <div class="info-row">
+              <span class="label">薪资范围</span>
+              <span class="value">{{ offer.salary }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">入职日期</span>
+              <span class="value">{{ offer.start_date }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">工作地点</span>
+              <span class="value">{{ offer.work_location }}</span>
+            </div>
+            <div v-if="offer.probation_period" class="info-row">
+              <span class="label">试用期</span>
+              <span class="value">{{ offer.probation_period }}</span>
+            </div>
+            <div v-if="offer.department" class="info-row">
+              <span class="label">直属部门</span>
+              <span class="value">{{ offer.department }}</span>
+            </div>
+            <div v-if="offer.notes" class="info-row">
+              <span class="label">补充说明</span>
+              <span class="value">{{ offer.notes }}</span>
+            </div>
+            <div v-if="offer.reject_reason" class="info-row">
+              <span class="label">拒绝原因</span>
+              <span class="value cancel-reason">{{ offer.reject_reason }}</span>
+            </div>
+          </div>
+          <div class="offer-actions">
+            <button v-if="offer.status === 'draft'" class="btn btn-sm btn-primary" @click="editOffer(offer)">编辑</button>
+            <button v-if="offer.status === 'draft'" class="btn btn-sm btn-success" @click="sendOffer(offer)">发送</button>
+            <button v-if="offer.status === 'sent'" class="btn btn-sm btn-danger" @click="withdrawOffer(offer)">撤回</button>
           </div>
         </div>
       </div>
@@ -233,6 +287,45 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showOfferModal" class="modal-overlay" @click.self="closeOfferModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ editingOffer ? '编辑Offer' : '发起Offer' }}</h3>
+          <button class="btn-close" @click="closeOfferModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>薪资范围</label>
+            <input type="text" v-model="offerForm.salary" class="form-control" placeholder="例如：30k-45k" />
+          </div>
+          <div class="form-group">
+            <label>入职日期</label>
+            <input type="date" v-model="offerForm.start_date" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>工作地点</label>
+            <input type="text" v-model="offerForm.work_location" class="form-control" placeholder="请输入工作地点" />
+          </div>
+          <div class="form-group">
+            <label>试用期</label>
+            <input type="text" v-model="offerForm.probation_period" class="form-control" placeholder="例如：3个月" />
+          </div>
+          <div class="form-group">
+            <label>直属部门</label>
+            <input type="text" v-model="offerForm.department" class="form-control" placeholder="请输入直属部门" />
+          </div>
+          <div class="form-group">
+            <label>补充说明</label>
+            <textarea v-model="offerForm.notes" class="form-control" rows="3" placeholder="请输入补充说明"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeOfferModal">取消</button>
+          <button class="btn btn-primary" @click="saveOffer">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -240,7 +333,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { resumeApi, jobApi, messageApi, interviewApi } from '../../api'
+import { resumeApi, jobApi, messageApi, interviewApi, offerApi } from '../../api'
 
 const emit = defineEmits(['update-stats'])
 
@@ -254,6 +347,9 @@ const newMessage = ref('')
 const interviews = ref([])
 const showInterviewModal = ref(false)
 const editingInterview = ref(null)
+const offers = ref([])
+const showOfferModal = ref(false)
+const editingOffer = ref(null)
 
 const formData = ref({
   round: '初试',
@@ -265,6 +361,15 @@ const formData = ref({
   cancel_reason: ''
 })
 
+const offerForm = ref({
+  salary: '',
+  start_date: '',
+  work_location: '',
+  probation_period: '',
+  department: '',
+  notes: ''
+})
+
 const getStatusText = (status) => {
   const map = { applied: '已投递', pending: '待沟通', interview: '已约聊', rejected: '已拒绝' }
   return map[status] || status
@@ -272,6 +377,11 @@ const getStatusText = (status) => {
 
 const getInterviewStatusText = (status) => {
   const map = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' }
+  return map[status] || status
+}
+
+const getOfferStatusText = (status) => {
+  const map = { draft: '待发送', sent: '已发送', accepted: '候选人已接受', rejected: '候选人已拒绝', withdrawn: '已撤回' }
   return map[status] || status
 }
 
@@ -421,6 +531,93 @@ const completeInterview = async (interview) => {
   }
 }
 
+const loadOffers = async () => {
+  if (!resume.value) return
+  try {
+    const response = await offerApi.getOffers({ resume_id: resume.value.id })
+    offers.value = response.data
+  } catch (error) {
+    console.error('Load offers failed:', error)
+  }
+}
+
+const closeOfferModal = () => {
+  showOfferModal.value = false
+  editingOffer.value = null
+  offerForm.value = {
+    salary: '',
+    start_date: '',
+    work_location: '',
+    probation_period: '',
+    department: '',
+    notes: ''
+  }
+}
+
+const editOffer = (offer) => {
+  editingOffer.value = offer
+  offerForm.value = {
+    salary: offer.salary,
+    start_date: offer.start_date,
+    work_location: offer.work_location,
+    probation_period: offer.probation_period,
+    department: offer.department,
+    notes: offer.notes
+  }
+  showOfferModal.value = true
+}
+
+const saveOffer = async () => {
+  if (!resume.value) return
+  try {
+    const data = {
+      resume_id: resume.value.id,
+      job_id: resume.value.job_id,
+      candidate_id: resume.value.candidate_id,
+      candidate_name: resume.value.candidate_name,
+      salary: offerForm.value.salary,
+      start_date: offerForm.value.start_date,
+      work_location: offerForm.value.work_location,
+      probation_period: offerForm.value.probation_period,
+      department: offerForm.value.department,
+      notes: offerForm.value.notes,
+      status: editingOffer.value ? editingOffer.value.status : 'draft'
+    }
+    
+    if (editingOffer.value) {
+      await offerApi.updateOffer(editingOffer.value.id, data)
+    } else {
+      await offerApi.createOffer(data)
+    }
+    
+    closeOfferModal()
+    loadOffers()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Save offer failed:', error)
+  }
+}
+
+const sendOffer = async (offer) => {
+  try {
+    await offerApi.updateOffer(offer.id, { ...offer, status: 'sent' })
+    loadOffers()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Send offer failed:', error)
+  }
+}
+
+const withdrawOffer = async (offer) => {
+  try {
+    await offerApi.updateOffer(offer.id, { ...offer, status: 'withdrawn' })
+    loadOffers()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Withdraw offer failed:', error)
+  }
+}
+
 const loadData = async () => {
   try {
     const resumeRes = await resumeApi.getResume(route.params.id)
@@ -433,6 +630,7 @@ const loadData = async () => {
     
     loadMessages()
     loadInterviews()
+    loadOffers()
   } catch (error) {
     console.error('Failed to load data:', error)
   }
