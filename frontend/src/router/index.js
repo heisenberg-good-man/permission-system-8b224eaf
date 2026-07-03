@@ -50,6 +50,11 @@ const routes = [
         path: 'offers',
         name: 'RecruiterOffers',
         component: () => import('../views/recruiter/OfferList.vue')
+      },
+      {
+        path: 'feedbacks',
+        name: 'RecruiterFeedbacks',
+        component: () => import('../views/recruiter/FeedbackList.vue')
       }
     ]
   },

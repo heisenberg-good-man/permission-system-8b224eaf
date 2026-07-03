@@ -108,4 +108,22 @@ export const statsApi = {
   }
 }
 
+export const feedbackApi = {
+  getFeedbacks(params) {
+    return api.get('/feedbacks', { params })
+  },
+  getFeedback(id) {
+    return api.get(`/feedbacks/${id}`)
+  },
+  createFeedback(data) {
+    return api.post('/feedbacks', data)
+  },
+  updateFeedback(id, data) {
+    return api.put(`/feedbacks/${id}`, data)
+  },
+  deleteFeedback(id) {
+    return api.delete(`/feedbacks/${id}`)
+  }
+}
+
 export default api

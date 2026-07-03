@@ -19,9 +19,12 @@
         <router-link to="/recruiter/interviews">面试安排</router-link>
       </div>
       <div class="nav-item" :class="{ active: $route.path === '/recruiter/offers' }">
-        <router-link to="/recruiter/offers">Offer管理</router-link>
-      </div>
-    </nav>
+      <router-link to="/recruiter/offers">Offer管理</router-link>
+    </div>
+    <div class="nav-item" :class="{ active: $route.path === '/recruiter/feedbacks' }">
+      <router-link to="/recruiter/feedbacks">面试反馈</router-link>
+    </div>
+  </nav>
 
     <main class="main-content">
       <div v-if="showStats" class="stats-row">
@@ -125,8 +128,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { statsApi } from '../../api'
 
-defineExpose({ loadStats })
-
 const router = useRouter()
 const route = useRoute()
 const { state, logout } = useUserStore()
@@ -147,7 +148,7 @@ const stats = ref({
 })
 
 const showStats = computed(() => {
-  return ['/recruiter', '/recruiter/applications', '/recruiter/interviews', '/recruiter/offers'].includes(route.path)
+  return ['/recruiter', '/recruiter/applications', '/recruiter/interviews', '/recruiter/offers', '/recruiter/feedbacks'].includes(route.path)
 })
 
 const handleLogout = () => {
@@ -172,6 +173,8 @@ const loadStats = async () => {
 onMounted(() => {
   loadStats()
 })
+
+defineExpose({ loadStats })
 </script>
 
 <style scoped>

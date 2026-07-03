@@ -123,12 +123,45 @@
             <h4>取消原因</h4>
             <p class="cancel-reason">{{ selectedInterview.cancel_reason }}</p>
           </div>
+
+          <div v-if="feedbacks.length > 0" class="detail-section">
+            <h4>面试反馈</h4>
+            <div v-for="feedback in feedbacks" :key="feedback.id" class="feedback-card">
+              <div class="feedback-header">
+                <span class="feedback-round">{{ feedback.round }}</span>
+                <span :class="['status-tag', `status-${getConclusionStatus(feedback.conclusion)}`]">{{ getConclusionText(feedback.conclusion) }}</span>
+              </div>
+              <div class="feedback-body">
+                <div class="feedback-row">
+                  <span class="label">面试官</span>
+                  <span class="value">{{ feedback.interviewer }}</span>
+                </div>
+                <div class="feedback-row">
+                  <span class="label">评分</span>
+                  <span class="value">{{ feedback.score }}</span>
+                </div>
+                <div v-if="feedback.strengths" class="feedback-row">
+                  <span class="label">优势</span>
+                  <span class="value">{{ feedback.strengths }}</span>
+                </div>
+                <div v-if="feedback.risks" class="feedback-row">
+                  <span class="label">风险点</span>
+                  <span class="value">{{ feedback.risks }}</span>
+                </div>
+                <div v-if="feedback.remarks" class="feedback-row">
+                  <span class="label">结论建议</span>
+                  <span class="value">{{ feedback.remarks }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer" v-if="selectedInterview">
           <button v-if="selectedInterview.status === 'pending'" class="btn btn-success" @click="confirmInterview">确认面试</button>
           <button v-if="selectedInterview.status === 'pending' || selectedInterview.status === 'confirmed'" class="btn btn-primary" @click="editInterview">编辑</button>
           <button v-if="selectedInterview.status !== 'completed' && selectedInterview.status !== 'cancelled'" class="btn btn-danger" @click="cancelInterview">取消面试</button>
           <button v-if="selectedInterview.status === 'confirmed'" class="btn btn-success" @click="completeInterview">标记完成</button>
+          <button v-if="selectedInterview.status === 'completed'" class="btn btn-info" @click="openFeedbackModal">{{ feedbacks.length > 0 ? '编辑反馈' : '添加反馈' }}</button>
           <button class="btn btn-outline" @click="closeDetailModal">关闭</button>
         </div>
       </div>
@@ -180,13 +213,73 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showFeedbackModal" class="modal-overlay" @click.self="closeFeedbackModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ editingFeedback ? '编辑面试反馈' : '新增面试反馈' }}</h3>
+          <button class="btn-close" @click="closeFeedbackModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>面试轮次</label>
+            <select v-model="feedbackForm.round" class="form-control">
+              <option value="初试">初试</option>
+              <option value="复试">复试</option>
+              <option value="终试">终试</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>面试官</label>
+            <input type="text" v-model="feedbackForm.interviewer" class="form-control" placeholder="请输入面试官姓名" />
+          </div>
+          <div class="form-group">
+            <label>评分 (0-100)</label>
+            <input type="number" v-model="feedbackForm.score" class="form-control" min="0" max="100" placeholder="请输入评分" />
+          </div>
+          <div class="form-group">
+            <label>评价标签（逗号分隔）</label>
+            <input type="text" v-model="feedbackForm.tags" class="form-control" placeholder="例如：技术能力强,沟通流畅" />
+          </div>
+          <div class="form-group">
+            <label>优势</label>
+            <textarea v-model="feedbackForm.strengths" class="form-control" rows="3" placeholder="请输入候选人优势"></textarea>
+          </div>
+          <div class="form-group">
+            <label>风险点</label>
+            <textarea v-model="feedbackForm.risks" class="form-control" rows="3" placeholder="请输入风险点"></textarea>
+          </div>
+          <div class="form-group">
+            <label>结论</label>
+            <select v-model="feedbackForm.conclusion" class="form-control">
+              <option value="pending">待定</option>
+              <option value="pass">通过</option>
+              <option value="next_round">进入下一轮</option>
+              <option value="reject">不通过</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>结论建议</label>
+            <textarea v-model="feedbackForm.remarks" class="form-control" rows="3" placeholder="请输入结论建议"></textarea>
+          </div>
+          <div v-if="feedbackForm.conclusion === 'reject'" class="form-group">
+            <label>对外反馈摘要（将展示给候选人）</label>
+            <textarea v-model="feedbackForm.external_feedback" class="form-control" rows="3" placeholder="请输入对外反馈内容"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeFeedbackModal">取消</button>
+          <button class="btn btn-primary" @click="saveFeedback">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../stores/user'
-import { jobApi, interviewApi } from '../../api'
+import { jobApi, interviewApi, feedbackApi } from '../../api'
 
 const emit = defineEmits(['update-stats'])
 
@@ -199,8 +292,11 @@ const dateFilter = ref('')
 
 const showDetailModal = ref(false)
 const showEditModal = ref(false)
+const showFeedbackModal = ref(false)
 const selectedInterview = ref(null)
 const selectedJob = ref(null)
+const feedbacks = ref([])
+const editingFeedback = ref(null)
 
 const formData = ref({
   round: '初试',
@@ -210,6 +306,33 @@ const formData = ref({
   location: '',
   remarks: ''
 })
+
+const feedbackForm = ref({
+  interview_id: 0,
+  resume_id: 0,
+  job_id: 0,
+  candidate_id: 0,
+  candidate_name: '',
+  round: '初试',
+  interviewer: '',
+  score: 0,
+  tags: '',
+  strengths: '',
+  risks: '',
+  conclusion: 'pending',
+  remarks: '',
+  external_feedback: ''
+})
+
+const getConclusionText = (conclusion) => {
+  const map = { pending: '待定', pass: '通过', next_round: '进入下一轮', reject: '不通过' }
+  return map[conclusion] || conclusion
+}
+
+const getConclusionStatus = (conclusion) => {
+  const map = { pending: 'pending', pass: 'success', next_round: 'success', reject: 'rejected' }
+  return map[conclusion] || 'pending'
+}
 
 const getStatusText = (status) => {
   const map = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' }
@@ -249,12 +372,85 @@ const viewDetail = async (interview) => {
   selectedInterview.value = interview
   selectedJob.value = jobs.value.find(j => j.id === interview.job_id)
   showDetailModal.value = true
+  loadFeedbacks(interview.id)
 }
 
 const closeDetailModal = () => {
   showDetailModal.value = false
   selectedInterview.value = null
   selectedJob.value = null
+}
+
+const loadFeedbacks = async (interviewId) => {
+  try {
+    const response = await feedbackApi.getFeedbacks({ interview_id: interviewId })
+    feedbacks.value = response.data
+  } catch (error) {
+    console.error('Load feedbacks failed:', error)
+  }
+}
+
+const openFeedbackModal = () => {
+  if (!selectedInterview.value) return
+  const existingFeedback = feedbacks.value.find(f => f.interview_id === selectedInterview.value.id)
+  if (existingFeedback) {
+    editingFeedback.value = existingFeedback
+    feedbackForm.value = {
+      interview_id: existingFeedback.interview_id,
+      resume_id: existingFeedback.resume_id,
+      job_id: existingFeedback.job_id,
+      candidate_id: existingFeedback.candidate_id,
+      candidate_name: existingFeedback.candidate_name,
+      round: existingFeedback.round,
+      interviewer: existingFeedback.interviewer,
+      score: existingFeedback.score,
+      tags: existingFeedback.tags,
+      strengths: existingFeedback.strengths,
+      risks: existingFeedback.risks,
+      conclusion: existingFeedback.conclusion,
+      remarks: existingFeedback.remarks,
+      external_feedback: existingFeedback.external_feedback
+    }
+  } else {
+    editingFeedback.value = null
+    feedbackForm.value = {
+      interview_id: selectedInterview.value.id,
+      resume_id: selectedInterview.value.resume_id,
+      job_id: selectedInterview.value.job_id,
+      candidate_id: selectedInterview.value.candidate_id,
+      candidate_name: selectedInterview.value.candidate_name,
+      round: selectedInterview.value.round,
+      interviewer: selectedInterview.value.interviewer,
+      score: 0,
+      tags: '',
+      strengths: '',
+      risks: '',
+      conclusion: 'pending',
+      remarks: '',
+      external_feedback: ''
+    }
+  }
+  showFeedbackModal.value = true
+}
+
+const closeFeedbackModal = () => {
+  showFeedbackModal.value = false
+  editingFeedback.value = null
+}
+
+const saveFeedback = async () => {
+  try {
+    if (editingFeedback.value) {
+      await feedbackApi.updateFeedback(editingFeedback.value.id, feedbackForm.value)
+    } else {
+      await feedbackApi.createFeedback(feedbackForm.value)
+    }
+    closeFeedbackModal()
+    loadFeedbacks(selectedInterview.value.id)
+    emit('update-stats')
+  } catch (error) {
+    console.error('Save feedback failed:', error)
+  }
 }
 
 const editInterview = () => {
@@ -532,5 +728,62 @@ onMounted(() => {
 
 textarea.form-control {
   resize: vertical;
+}
+
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feedback-card {
+  padding: 12px;
+  background-color: #fafafa;
+  border-radius: 6px;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.feedback-round {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.feedback-body {
+  margin-bottom: 8px;
+}
+
+.feedback-row {
+  display: flex;
+  margin-bottom: 6px;
+}
+
+.feedback-row:last-child {
+  margin-bottom: 0;
+}
+
+.feedback-row .label {
+  width: 80px;
+  color: #999;
+  font-size: 13px;
+}
+
+.feedback-row .value {
+  flex: 1;
+  font-size: 13px;
+}
+
+.tag {
+  padding: 3px 10px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 6px;
 }
 </style>

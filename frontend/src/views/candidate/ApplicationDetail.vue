@@ -117,6 +117,14 @@
                 <span class="label">取消原因</span>
                 <span class="value cancel-reason">{{ interview.cancel_reason }}</span>
               </div>
+              <div class="info-row">
+                <span class="label">面试结果</span>
+                <span :class="['status-tag', `status-${getConclusionStatus(getFeedbackByInterviewId(interview.id)?.conclusion)}`]">{{ getInterviewResultStatus(interview, getFeedbackByInterviewId(interview.id)) }}</span>
+              </div>
+              <div v-if="getFeedbackByInterviewId(interview.id)?.external_feedback" class="info-row">
+                <span class="label">反馈摘要</span>
+                <span class="value feedback-text">{{ getFeedbackByInterviewId(interview.id).external_feedback }}</span>
+              </div>
             </div>
             <div class="interview-actions">
               <button v-if="interview.status === 'pending'" class="btn btn-sm btn-success" @click="confirmInterview(interview)">确认面试</button>
@@ -205,7 +213,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { resumeApi, jobApi, messageApi, interviewApi, offerApi } from '../../api'
+import { resumeApi, jobApi, messageApi, interviewApi, offerApi, feedbackApi } from '../../api'
 
 const emit = defineEmits(['update-stats'])
 
@@ -218,6 +226,7 @@ const messages = ref([])
 const newMessage = ref('')
 const interviews = ref([])
 const offers = ref([])
+const feedbacks = ref([])
 
 const getStatusText = (status) => {
   const map = { applied: '已投递', pending: '待沟通', interview: '已约聊', rejected: '已拒绝' }
@@ -232,6 +241,31 @@ const getInterviewStatusText = (status) => {
 const getOfferStatusText = (status) => {
   const map = { draft: '待发送', sent: '已发送', accepted: '已接受', rejected: '已拒绝', withdrawn: '已撤回' }
   return map[status] || status
+}
+
+const getConclusionText = (conclusion) => {
+  const map = { pending: '等待结果', pass: '通过', next_round: '进入下一轮', reject: '未通过' }
+  return map[conclusion] || conclusion
+}
+
+const getConclusionStatus = (conclusion) => {
+  const map = { pending: 'pending', pass: 'success', next_round: 'success', reject: 'rejected' }
+  return map[conclusion] || 'pending'
+}
+
+const getInterviewResultStatus = (interview, feedback) => {
+  if (!feedback) {
+    if (interview.status === 'completed') return '面试已完成，等待结果'
+    if (interview.status === 'confirmed') return '等待面试'
+    if (interview.status === 'pending') return '等待面试确认'
+    if (interview.status === 'cancelled') return '面试已取消'
+    return ''
+  }
+  const conclusion = feedback.conclusion
+  if (conclusion === 'pass') return '面试通过'
+  if (conclusion === 'next_round') return '进入下一轮面试'
+  if (conclusion === 'reject') return '面试未通过'
+  return '等待结果'
 }
 
 const formatDate = (dateStr) => {
@@ -296,6 +330,20 @@ const loadOffers = async () => {
   }
 }
 
+const loadFeedbacks = async () => {
+  if (!resume.value) return
+  try {
+    const response = await feedbackApi.getFeedbacks({ resume_id: resume.value.id })
+    feedbacks.value = response.data
+  } catch (error) {
+    console.error('Load feedbacks failed:', error)
+  }
+}
+
+const getFeedbackByInterviewId = (interviewId) => {
+  return feedbacks.value.find(f => f.interview_id === interviewId)
+}
+
 const acceptOffer = async (offer) => {
   try {
     await offerApi.updateOffer(offer.id, { ...offer, status: 'accepted' })
@@ -329,6 +377,7 @@ const loadData = async () => {
     loadMessages()
     loadInterviews()
     loadOffers()
+    loadFeedbacks()
   } catch (error) {
     console.error('Failed to load data:', error)
   }
@@ -606,5 +655,10 @@ onMounted(() => {
   padding: 10px;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
+}
+
+.feedback-text {
+  font-style: italic;
+  color: #666;
 }
 </style>

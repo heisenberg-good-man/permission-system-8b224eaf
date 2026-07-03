@@ -88,6 +88,15 @@ body {
   background-color: #f78989;
 }
 
+.btn-info {
+  background-color: #909399;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #a6a9ad;
+}
+
 .btn-outline {
   background-color: transparent;
   border: 1px solid #dcdfe6;
@@ -170,6 +179,11 @@ body {
 .status-rejected {
   background-color: #fef0f0;
   color: #f56c6c;
+}
+
+.status-success {
+  background-color: #f0f9eb;
+  color: #67c23a;
 }
 
 .status-active {

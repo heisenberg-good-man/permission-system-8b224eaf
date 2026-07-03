@@ -80,8 +80,6 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { statsApi } from '../../api'
 
-defineExpose({ loadStats })
-
 const router = useRouter()
 const { state, logout } = useUserStore()
 
@@ -109,6 +107,8 @@ const loadStats = async () => {
 onMounted(() => {
   loadStats()
 })
+
+defineExpose({ loadStats })
 </script>
 
 <style scoped>

@@ -210,6 +210,46 @@
       </div>
     </div>
 
+    <div class="card" v-if="feedbacks.length > 0">
+      <h3>面试反馈</h3>
+      <div class="feedback-list">
+        <div v-for="feedback in feedbacks" :key="feedback.id" class="feedback-card">
+          <div class="feedback-header">
+            <span class="feedback-round">{{ feedback.round }}</span>
+            <span :class="['status-tag', `status-${getConclusionStatus(feedback.conclusion)}`]">{{ getConclusionText(feedback.conclusion) }}</span>
+          </div>
+          <div class="feedback-body">
+            <div class="feedback-row">
+              <span class="label">面试官</span>
+              <span class="value">{{ feedback.interviewer }}</span>
+            </div>
+            <div class="feedback-row">
+              <span class="label">评分</span>
+              <span class="value">{{ feedback.score }}</span>
+            </div>
+            <div v-if="feedback.tags" class="feedback-row">
+              <span class="label">评价标签</span>
+              <span class="value">
+                <span v-for="tag in feedback.tags.split(',')" :key="tag" class="tag">{{ tag.trim() }}</span>
+              </span>
+            </div>
+            <div v-if="feedback.strengths" class="feedback-row">
+              <span class="label">优势</span>
+              <span class="value">{{ feedback.strengths }}</span>
+            </div>
+            <div v-if="feedback.risks" class="feedback-row">
+              <span class="label">风险点</span>
+              <span class="value">{{ feedback.risks }}</span>
+            </div>
+            <div v-if="feedback.remarks" class="feedback-row">
+              <span class="label">结论建议</span>
+              <span class="value">{{ feedback.remarks }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card message-section">
       <h3>沟通记录</h3>
       <div class="message-list">
@@ -333,7 +373,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { resumeApi, jobApi, messageApi, interviewApi, offerApi } from '../../api'
+import { resumeApi, jobApi, messageApi, interviewApi, offerApi, feedbackApi } from '../../api'
 
 const emit = defineEmits(['update-stats'])
 
@@ -350,6 +390,7 @@ const editingInterview = ref(null)
 const offers = ref([])
 const showOfferModal = ref(false)
 const editingOffer = ref(null)
+const feedbacks = ref([])
 
 const formData = ref({
   round: '初试',
@@ -383,6 +424,16 @@ const getInterviewStatusText = (status) => {
 const getOfferStatusText = (status) => {
   const map = { draft: '待发送', sent: '已发送', accepted: '候选人已接受', rejected: '候选人已拒绝', withdrawn: '已撤回' }
   return map[status] || status
+}
+
+const getConclusionText = (conclusion) => {
+  const map = { pending: '待定', pass: '通过', next_round: '进入下一轮', reject: '不通过' }
+  return map[conclusion] || conclusion
+}
+
+const getConclusionStatus = (conclusion) => {
+  const map = { pending: 'pending', pass: 'success', next_round: 'success', reject: 'rejected' }
+  return map[conclusion] || 'pending'
 }
 
 const formatDate = (dateStr) => {
@@ -541,6 +592,16 @@ const loadOffers = async () => {
   }
 }
 
+const loadFeedbacks = async () => {
+  if (!resume.value) return
+  try {
+    const response = await feedbackApi.getFeedbacks({ resume_id: resume.value.id })
+    feedbacks.value = response.data
+  } catch (error) {
+    console.error('Load feedbacks failed:', error)
+  }
+}
+
 const closeOfferModal = () => {
   showOfferModal.value = false
   editingOffer.value = null
@@ -631,6 +692,7 @@ const loadData = async () => {
     loadMessages()
     loadInterviews()
     loadOffers()
+    loadFeedbacks()
   } catch (error) {
     console.error('Failed to load data:', error)
   }
@@ -1009,5 +1071,62 @@ onMounted(() => {
 
 textarea.form-control {
   resize: vertical;
+}
+
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feedback-card {
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.feedback-round {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.feedback-body {
+  margin-bottom: 12px;
+}
+
+.feedback-row {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.feedback-row:last-child {
+  margin-bottom: 0;
+}
+
+.feedback-row .label {
+  width: 100px;
+  color: #999;
+  font-size: 14px;
+}
+
+.feedback-row .value {
+  flex: 1;
+  font-size: 14px;
+}
+
+.tag {
+  padding: 4px 12px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 8px;
 }
 </style>

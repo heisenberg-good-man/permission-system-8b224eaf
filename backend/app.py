@@ -94,6 +94,25 @@ class Offer(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+class Feedback(BaseModel):
+    id: Optional[int] = None
+    interview_id: int
+    resume_id: int
+    job_id: int
+    candidate_id: int
+    candidate_name: str
+    round: str
+    interviewer: str
+    score: int = 0
+    tags: str = ""
+    strengths: str = ""
+    risks: str = ""
+    conclusion: str = "pending"
+    remarks: str = ""
+    external_feedback: str = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
 mock_users = [
     User(id=1, name="张三", role="recruiter", email="zhangsan@company.com"),
     User(id=2, name="李四", role="candidate", email="lisi@example.com"),
@@ -277,11 +296,34 @@ mock_offers = [
     ),
 ]
 
+mock_feedbacks = [
+    Feedback(
+        id=1,
+        interview_id=1,
+        resume_id=2,
+        job_id=1,
+        candidate_id=4,
+        candidate_name="赵六",
+        round="初试",
+        interviewer="张三",
+        score=85,
+        tags="技术能力强,沟通流畅",
+        strengths="React经验丰富，有大型项目经验",
+        risks="薪资期望偏高",
+        conclusion="pass",
+        remarks="建议进入复试",
+        external_feedback="",
+        created_at=datetime(2024, 1, 25, 15, 0),
+        updated_at=datetime(2024, 1, 25, 15, 30)
+    ),
+]
+
 job_counter = 5
 resume_counter = 4
 message_counter = 5
 interview_counter = 2
 offer_counter = 2
+feedback_counter = 2
 
 @app.get("/api/users", response_model=List[User])
 def get_users(role: Optional[str] = Query(None)):
@@ -496,6 +538,96 @@ def update_offer(offer_id: int, offer: Offer):
     offer.updated_at = datetime.now()
     mock_offers[index] = offer
     return offer
+
+@app.get("/api/feedbacks", response_model=List[Feedback])
+def get_feedbacks(
+    recruiter_id: Optional[int] = Query(None),
+    candidate_id: Optional[int] = Query(None),
+    resume_id: Optional[int] = Query(None),
+    job_id: Optional[int] = Query(None),
+    interview_id: Optional[int] = Query(None),
+    conclusion: Optional[str] = Query(None),
+    round: Optional[str] = Query(None)
+):
+    result = mock_feedbacks
+    if recruiter_id:
+        result = [f for f in result if any(j.id == f.job_id and j.recruiter_id == recruiter_id for j in mock_jobs)]
+    if candidate_id:
+        result = [f for f in result if f.candidate_id == candidate_id]
+    if resume_id:
+        result = [f for f in result if f.resume_id == resume_id]
+    if job_id:
+        result = [f for f in result if f.job_id == job_id]
+    if interview_id:
+        result = [f for f in result if f.interview_id == interview_id]
+    if conclusion:
+        result = [f for f in result if f.conclusion == conclusion]
+    if round:
+        result = [f for f in result if f.round == round]
+    return result
+
+@app.get("/api/feedbacks/{feedback_id}", response_model=Feedback)
+def get_feedback(feedback_id: int):
+    feedback = next((f for f in mock_feedbacks if f.id == feedback_id), None)
+    if not feedback:
+        raise HTTPException(status_code=404, detail="面试反馈不存在")
+    return feedback
+
+@app.post("/api/feedbacks", response_model=Feedback)
+def create_feedback(feedback: Feedback):
+    global feedback_counter
+    feedback.id = feedback_counter
+    feedback.created_at = datetime.now()
+    feedback.updated_at = datetime.now()
+    mock_feedbacks.append(feedback)
+    
+    if feedback.conclusion in ["pass", "next_round"]:
+        resume_index = next((i for i, r in enumerate(mock_resumes) if r.id == feedback.resume_id), None)
+        if resume_index is not None:
+            mock_resumes[resume_index].status = "interview"
+            mock_resumes[resume_index].updated_at = datetime.now()
+    elif feedback.conclusion == "reject":
+        resume_index = next((i for i, r in enumerate(mock_resumes) if r.id == feedback.resume_id), None)
+        if resume_index is not None:
+            mock_resumes[resume_index].status = "rejected"
+            mock_resumes[resume_index].updated_at = datetime.now()
+    
+    feedback_counter += 1
+    return feedback
+
+@app.put("/api/feedbacks/{feedback_id}", response_model=Feedback)
+def update_feedback(feedback_id: int, feedback: Feedback):
+    index = next((i for i, f in enumerate(mock_feedbacks) if f.id == feedback_id), None)
+    if index is None:
+        raise HTTPException(status_code=404, detail="面试反馈不存在")
+    
+    old_conclusion = mock_feedbacks[index].conclusion
+    feedback.id = feedback_id
+    feedback.created_at = mock_feedbacks[index].created_at
+    feedback.updated_at = datetime.now()
+    mock_feedbacks[index] = feedback
+    
+    if feedback.conclusion in ["pass", "next_round"]:
+        resume_index = next((i for i, r in enumerate(mock_resumes) if r.id == feedback.resume_id), None)
+        if resume_index is not None:
+            mock_resumes[resume_index].status = "interview"
+            mock_resumes[resume_index].updated_at = datetime.now()
+    elif feedback.conclusion == "reject":
+        resume_index = next((i for i, r in enumerate(mock_resumes) if r.id == feedback.resume_id), None)
+        if resume_index is not None:
+            mock_resumes[resume_index].status = "rejected"
+            mock_resumes[resume_index].updated_at = datetime.now()
+    
+    return feedback
+
+@app.delete("/api/feedbacks/{feedback_id}")
+def delete_feedback(feedback_id: int):
+    global mock_feedbacks
+    index = next((i for i, f in enumerate(mock_feedbacks) if f.id == feedback_id), None)
+    if index is None:
+        raise HTTPException(status_code=404, detail="面试反馈不存在")
+    mock_feedbacks.pop(index)
+    return {"message": "删除成功"}
 
 @app.get("/api/stats/{user_id}")
 def get_stats(user_id: int):
