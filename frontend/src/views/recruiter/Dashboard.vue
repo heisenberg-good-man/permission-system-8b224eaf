@@ -15,6 +15,9 @@
       <div class="nav-item" :class="{ active: $route.path === '/recruiter/applications' }">
         <router-link to="/recruiter/applications">简历投递</router-link>
       </div>
+      <div class="nav-item" :class="{ active: $route.path === '/recruiter/interviews' }">
+        <router-link to="/recruiter/interviews">面试安排</router-link>
+      </div>
     </nav>
 
     <main class="main-content">
@@ -47,6 +50,27 @@
             <div class="stat-label">已约聊</div>
           </div>
         </div>
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.pending_interview_count }}</div>
+            <div class="stat-label">待确认面试</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🕐</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.today_interview_count }}</div>
+            <div class="stat-label">今日面试</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✓</div>
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.completed_interview_count }}</div>
+            <div class="stat-label">已完成面试</div>
+          </div>
+        </div>
       </div>
       <router-view @update-stats="loadStats" />
     </main>
@@ -54,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { statsApi } from '../../api'
@@ -70,11 +94,14 @@ const stats = ref({
   jobs_count: 0,
   resumes_count: 0,
   pending_count: 0,
-  interview_count: 0
+  interview_count: 0,
+  pending_interview_count: 0,
+  today_interview_count: 0,
+  completed_interview_count: 0
 })
 
 const showStats = computed(() => {
-  return ['/recruiter', '/recruiter/applications'].includes(route.path)
+  return ['/recruiter', '/recruiter/applications', '/recruiter/interviews'].includes(route.path)
 })
 
 const handleLogout = () => {
@@ -176,6 +203,18 @@ onMounted(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 20px;
+}
+
+@media (max-width: 1200px) {
+  .stats-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .stat-card {

@@ -60,6 +60,23 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class Interview(BaseModel):
+    id: Optional[int] = None
+    resume_id: int
+    job_id: int
+    candidate_id: int
+    candidate_name: str
+    round: str
+    interview_time: str
+    method: str
+    interviewer: str
+    location: str
+    remarks: str = ""
+    status: str = "pending"
+    cancel_reason: str = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
 mock_users = [
     User(id=1, name="张三", role="recruiter", email="zhangsan@company.com"),
     User(id=2, name="李四", role="candidate", email="lisi@example.com"),
@@ -205,9 +222,29 @@ mock_messages = [
     ),
 ]
 
+mock_interviews = [
+    Interview(
+        id=1,
+        resume_id=2,
+        job_id=1,
+        candidate_id=4,
+        candidate_name="赵六",
+        round="初试",
+        interview_time="2024-01-25 14:00",
+        method="线上",
+        interviewer="张三",
+        location="腾讯会议",
+        remarks="请提前准备自我介绍和项目经历",
+        status="confirmed",
+        created_at=datetime(2024, 1, 22, 15, 30),
+        updated_at=datetime(2024, 1, 23, 10, 0)
+    ),
+]
+
 job_counter = 5
 resume_counter = 4
 message_counter = 5
+interview_counter = 2
 
 @app.get("/api/users", response_model=List[User])
 def get_users(role: Optional[str] = Query(None)):
@@ -325,22 +362,81 @@ def create_message(message: Message):
     message_counter += 1
     return message
 
+@app.get("/api/interviews", response_model=List[Interview])
+def get_interviews(
+    recruiter_id: Optional[int] = Query(None),
+    candidate_id: Optional[int] = Query(None),
+    resume_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    date: Optional[str] = Query(None)
+):
+    result = mock_interviews
+    if recruiter_id:
+        result = [i for i in result if any(j.id == i.job_id and j.recruiter_id == recruiter_id for j in mock_jobs)]
+    if candidate_id:
+        result = [i for i in result if i.candidate_id == candidate_id]
+    if resume_id:
+        result = [i for i in result if i.resume_id == resume_id]
+    if status:
+        result = [i for i in result if i.status == status]
+    if date:
+        result = [i for i in result if i.interview_time.startswith(date)]
+    return result
+
+@app.get("/api/interviews/{interview_id}", response_model=Interview)
+def get_interview(interview_id: int):
+    interview = next((i for i in mock_interviews if i.id == interview_id), None)
+    if not interview:
+        raise HTTPException(status_code=404, detail="面试安排不存在")
+    return interview
+
+@app.post("/api/interviews", response_model=Interview)
+def create_interview(interview: Interview):
+    global interview_counter
+    interview.id = interview_counter
+    interview.created_at = datetime.now()
+    interview.updated_at = datetime.now()
+    mock_interviews.append(interview)
+    interview_counter += 1
+    return interview
+
+@app.put("/api/interviews/{interview_id}", response_model=Interview)
+def update_interview(interview_id: int, interview: Interview):
+    index = next((i for i, r in enumerate(mock_interviews) if r.id == interview_id), None)
+    if index is None:
+        raise HTTPException(status_code=404, detail="面试安排不存在")
+    interview.id = interview_id
+    interview.created_at = mock_interviews[index].created_at
+    interview.updated_at = datetime.now()
+    mock_interviews[index] = interview
+    return interview
+
 @app.get("/api/stats/{user_id}")
 def get_stats(user_id: int):
     user = next((u for u in mock_users if u.id == user_id), None)
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
     
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
     if user.role == "recruiter":
         jobs_count = len([j for j in mock_jobs if j.recruiter_id == user_id])
         resumes_count = len([r for r in mock_resumes if any(j.id == r.job_id and j.recruiter_id == user_id for j in mock_jobs)])
         pending_count = len([r for r in mock_resumes if any(j.id == r.job_id and j.recruiter_id == user_id for j in mock_jobs) and r.status == "pending"])
         interview_count = len([r for r in mock_resumes if any(j.id == r.job_id and j.recruiter_id == user_id for j in mock_jobs) and r.status == "interview"])
+        my_interviews = [i for i in mock_interviews if any(j.id == i.job_id and j.recruiter_id == user_id for j in mock_jobs)]
+        pending_interview_count = len([i for i in my_interviews if i.status == "pending"])
+        today_interview_count = len([i for i in my_interviews if i.interview_time.startswith(today_str)])
+        completed_interview_count = len([i for i in my_interviews if i.status == "completed"])
     else:
         jobs_count = len(mock_jobs)
         resumes_count = len([r for r in mock_resumes if r.candidate_id == user_id])
         pending_count = len([r for r in mock_resumes if r.candidate_id == user_id and r.status == "pending"])
         interview_count = len([r for r in mock_resumes if r.candidate_id == user_id and r.status == "interview"])
+        my_interviews = [i for i in mock_interviews if i.candidate_id == user_id]
+        pending_interview_count = len([i for i in my_interviews if i.status == "pending"])
+        today_interview_count = len([i for i in my_interviews if i.interview_time.startswith(today_str)])
+        completed_interview_count = len([i for i in my_interviews if i.status == "completed"])
     
     return {
         "jobs_count": jobs_count,
@@ -348,7 +444,10 @@ def get_stats(user_id: int):
         "pending_count": pending_count,
         "interview_count": interview_count,
         "rejected_count": len([r for r in mock_resumes if (user.role == "recruiter" and any(j.id == r.job_id and j.recruiter_id == user_id for j in mock_jobs) or user.role == "candidate" and r.candidate_id == user_id) and r.status == "rejected"]),
-        "applied_count": len([r for r in mock_resumes if (user.role == "recruiter" and any(j.id == r.job_id and j.recruiter_id == user_id for j in mock_jobs) or user.role == "candidate" and r.candidate_id == user_id) and r.status == "applied"])
+        "applied_count": len([r for r in mock_resumes if (user.role == "recruiter" and any(j.id == r.job_id and j.recruiter_id == user_id for j in mock_jobs) or user.role == "candidate" and r.candidate_id == user_id) and r.status == "applied"]),
+        "pending_interview_count": pending_interview_count,
+        "today_interview_count": today_interview_count,
+        "completed_interview_count": completed_interview_count
     }
 
 if __name__ == "__main__":

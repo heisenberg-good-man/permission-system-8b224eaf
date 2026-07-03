@@ -40,6 +40,11 @@ const routes = [
         path: 'applications',
         name: 'RecruiterApplications',
         component: () => import('../views/recruiter/ApplicationList.vue')
+      },
+      {
+        path: 'interviews',
+        name: 'RecruiterInterviews',
+        component: () => import('../views/recruiter/InterviewList.vue')
       }
     ]
   },

@@ -72,6 +72,21 @@ export const messageApi = {
   }
 }
 
+export const interviewApi = {
+  getInterviews(params) {
+    return api.get('/interviews', { params })
+  },
+  getInterview(id) {
+    return api.get(`/interviews/${id}`)
+  },
+  createInterview(data) {
+    return api.post('/interviews', data)
+  },
+  updateInterview(id, data) {
+    return api.put(`/interviews/${id}`, data)
+  }
+}
+
 export const statsApi = {
   getStats(userId) {
     return api.get(`/stats/${userId}`)

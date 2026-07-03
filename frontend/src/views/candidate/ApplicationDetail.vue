@@ -83,6 +83,47 @@
           </div>
         </div>
       </div>
+
+      <div class="card" v-if="interviews.length > 0">
+        <h3>面试安排</h3>
+        <div class="interview-list">
+          <div v-for="interview in interviews" :key="interview.id" class="interview-card">
+            <div class="interview-header">
+              <span class="interview-round">{{ interview.round }}</span>
+              <span :class="['status-tag', `status-${interview.status}`]">{{ getInterviewStatusText(interview.status) }}</span>
+            </div>
+            <div class="interview-info">
+              <div class="info-row">
+                <span class="label">面试时间</span>
+                <span class="value">{{ interview.interview_time }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">面试方式</span>
+                <span class="value">{{ interview.method }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">面试官</span>
+                <span class="value">{{ interview.interviewer }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">地点/链接</span>
+                <span class="value">{{ interview.location }}</span>
+              </div>
+              <div v-if="interview.remarks" class="info-row">
+                <span class="label">备注</span>
+                <span class="value">{{ interview.remarks }}</span>
+              </div>
+              <div v-if="interview.cancel_reason" class="info-row">
+                <span class="label">取消原因</span>
+                <span class="value cancel-reason">{{ interview.cancel_reason }}</span>
+              </div>
+            </div>
+            <div class="interview-actions">
+              <button v-if="interview.status === 'pending'" class="btn btn-sm btn-success" @click="confirmInterview(interview)">确认面试</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card message-section">
@@ -118,7 +159,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { resumeApi, jobApi, messageApi } from '../../api'
+import { resumeApi, jobApi, messageApi, interviewApi } from '../../api'
 
 const route = useRoute()
 const { state } = useUserStore()
@@ -127,9 +168,15 @@ const resume = ref(null)
 const job = ref(null)
 const messages = ref([])
 const newMessage = ref('')
+const interviews = ref([])
 
 const getStatusText = (status) => {
   const map = { applied: '已投递', pending: '待沟通', interview: '已约聊', rejected: '已拒绝' }
+  return map[status] || status
+}
+
+const getInterviewStatusText = (status) => {
+  const map = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' }
   return map[status] || status
 }
 
@@ -166,6 +213,25 @@ const loadMessages = async () => {
   }
 }
 
+const loadInterviews = async () => {
+  if (!resume.value) return
+  try {
+    const response = await interviewApi.getInterviews({ resume_id: resume.value.id })
+    interviews.value = response.data
+  } catch (error) {
+    console.error('Load interviews failed:', error)
+  }
+}
+
+const confirmInterview = async (interview) => {
+  try {
+    await interviewApi.updateInterview(interview.id, { ...interview, status: 'confirmed' })
+    loadInterviews()
+  } catch (error) {
+    console.error('Confirm interview failed:', error)
+  }
+}
+
 const loadData = async () => {
   try {
     const resumeRes = await resumeApi.getResume(route.params.id)
@@ -175,6 +241,7 @@ const loadData = async () => {
     job.value = jobRes.data
     
     loadMessages()
+    loadInterviews()
   } catch (error) {
     console.error('Failed to load data:', error)
   }
@@ -322,6 +389,68 @@ onMounted(() => {
 .flow-arrow {
   color: #999;
   font-size: 18px;
+}
+
+.interview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.interview-card {
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+.interview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.interview-round {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.interview-info {
+  margin-bottom: 12px;
+}
+
+.interview-info .info-row {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.interview-info .info-row:last-child {
+  margin-bottom: 0;
+}
+
+.interview-info .label {
+  width: 100px;
+  color: #999;
+  font-size: 14px;
+}
+
+.interview-info .value {
+  flex: 1;
+  font-size: 14px;
+}
+
+.cancel-reason {
+  color: #f56c6c;
+}
+
+.interview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 12px;
 }
 
 .message-section {

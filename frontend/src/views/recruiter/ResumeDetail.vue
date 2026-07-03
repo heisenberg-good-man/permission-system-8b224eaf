@@ -102,6 +102,57 @@
         >
           拒绝
         </button>
+        <button 
+          v-if="resume.status === 'pending' || resume.status === 'interview'" 
+          class="btn btn-primary" 
+          @click="showInterviewModal = true"
+        >
+          创建面试安排
+        </button>
+      </div>
+    </div>
+
+    <div class="card" v-if="interviews.length > 0">
+      <h3>面试安排</h3>
+      <div class="interview-list">
+        <div v-for="interview in interviews" :key="interview.id" class="interview-card">
+          <div class="interview-header">
+            <span class="interview-round">{{ interview.round }}</span>
+            <span :class="['status-tag', `status-${interview.status}`]">{{ getInterviewStatusText(interview.status) }}</span>
+          </div>
+          <div class="interview-info">
+            <div class="info-row">
+              <span class="label">面试时间</span>
+              <span class="value">{{ interview.interview_time }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">面试方式</span>
+              <span class="value">{{ interview.method }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">面试官</span>
+              <span class="value">{{ interview.interviewer }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">地点/链接</span>
+              <span class="value">{{ interview.location }}</span>
+            </div>
+            <div v-if="interview.remarks" class="info-row">
+              <span class="label">备注</span>
+              <span class="value">{{ interview.remarks }}</span>
+            </div>
+            <div v-if="interview.cancel_reason" class="info-row">
+              <span class="label">取消原因</span>
+              <span class="value cancel-reason">{{ interview.cancel_reason }}</span>
+            </div>
+          </div>
+          <div class="interview-actions">
+            <button v-if="interview.status === 'pending'" class="btn btn-sm btn-success" @click="confirmInterview(interview)">确认</button>
+            <button v-if="interview.status === 'pending' || interview.status === 'confirmed'" class="btn btn-sm btn-primary" @click="editInterview(interview)">编辑</button>
+            <button v-if="interview.status !== 'completed' && interview.status !== 'cancelled'" class="btn btn-sm btn-danger" @click="cancelInterview(interview)">取消</button>
+            <button v-if="interview.status === 'confirmed'" class="btn btn-sm btn-success" @click="completeInterview(interview)">标记完成</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -131,6 +182,57 @@
         <button class="btn btn-primary" @click="sendMessage">发送</button>
       </div>
     </div>
+
+    <div v-if="showInterviewModal" class="modal-overlay" @click.self="closeInterviewModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ editingInterview ? '编辑面试安排' : '创建面试安排' }}</h3>
+          <button class="btn-close" @click="closeInterviewModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>面试轮次</label>
+            <select v-model="formData.round" class="form-control">
+              <option value="初试">初试</option>
+              <option value="复试">复试</option>
+              <option value="终试">终试</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>面试时间</label>
+            <input type="datetime-local" v-model="formData.interview_time" class="form-control" />
+          </div>
+          <div class="form-group">
+            <label>面试方式</label>
+            <select v-model="formData.method" class="form-control">
+              <option value="线上">线上</option>
+              <option value="线下">线下</option>
+              <option value="电话">电话</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>面试官</label>
+            <input type="text" v-model="formData.interviewer" class="form-control" placeholder="请输入面试官姓名" />
+          </div>
+          <div class="form-group">
+            <label>地点/会议链接</label>
+            <input type="text" v-model="formData.location" class="form-control" placeholder="请输入面试地点或会议链接" />
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <textarea v-model="formData.remarks" class="form-control" rows="3" placeholder="请输入备注信息"></textarea>
+          </div>
+          <div v-if="editingInterview && editingInterview.status !== 'completed'" class="form-group">
+            <label>取消原因</label>
+            <input type="text" v-model="formData.cancel_reason" class="form-control" placeholder="取消面试时填写原因" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeInterviewModal">取消</button>
+          <button class="btn btn-primary" @click="saveInterview">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -138,7 +240,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
-import { resumeApi, jobApi, messageApi } from '../../api'
+import { resumeApi, jobApi, messageApi, interviewApi } from '../../api'
 
 const emit = defineEmits(['update-stats'])
 
@@ -149,9 +251,27 @@ const resume = ref(null)
 const jobTitle = ref('')
 const messages = ref([])
 const newMessage = ref('')
+const interviews = ref([])
+const showInterviewModal = ref(false)
+const editingInterview = ref(null)
+
+const formData = ref({
+  round: '初试',
+  interview_time: '',
+  method: '线上',
+  interviewer: '',
+  location: '',
+  remarks: '',
+  cancel_reason: ''
+})
 
 const getStatusText = (status) => {
   const map = { applied: '已投递', pending: '待沟通', interview: '已约聊', rejected: '已拒绝' }
+  return map[status] || status
+}
+
+const getInterviewStatusText = (status) => {
+  const map = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' }
   return map[status] || status
 }
 
@@ -199,6 +319,108 @@ const loadMessages = async () => {
   }
 }
 
+const loadInterviews = async () => {
+  if (!resume.value) return
+  try {
+    const response = await interviewApi.getInterviews({ resume_id: resume.value.id })
+    interviews.value = response.data
+  } catch (error) {
+    console.error('Load interviews failed:', error)
+  }
+}
+
+const closeInterviewModal = () => {
+  showInterviewModal.value = false
+  editingInterview.value = null
+  formData.value = {
+    round: '初试',
+    interview_time: '',
+    method: '线上',
+    interviewer: '',
+    location: '',
+    remarks: '',
+    cancel_reason: ''
+  }
+}
+
+const editInterview = (interview) => {
+  editingInterview.value = interview
+  formData.value = {
+    round: interview.round,
+    interview_time: interview.interview_time.replace(' ', 'T'),
+    method: interview.method,
+    interviewer: interview.interviewer,
+    location: interview.location,
+    remarks: interview.remarks,
+    cancel_reason: interview.cancel_reason
+  }
+  showInterviewModal.value = true
+}
+
+const saveInterview = async () => {
+  if (!resume.value) return
+  try {
+    const data = {
+      resume_id: resume.value.id,
+      job_id: resume.value.job_id,
+      candidate_id: resume.value.candidate_id,
+      candidate_name: resume.value.candidate_name,
+      round: formData.value.round,
+      interview_time: formData.value.interview_time.replace('T', ' '),
+      method: formData.value.method,
+      interviewer: formData.value.interviewer,
+      location: formData.value.location,
+      remarks: formData.value.remarks,
+      cancel_reason: formData.value.cancel_reason,
+      status: editingInterview.value ? editingInterview.value.status : 'pending'
+    }
+    
+    if (editingInterview.value) {
+      await interviewApi.updateInterview(editingInterview.value.id, data)
+    } else {
+      await interviewApi.createInterview(data)
+    }
+    
+    closeInterviewModal()
+    loadInterviews()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Save interview failed:', error)
+  }
+}
+
+const confirmInterview = async (interview) => {
+  try {
+    await interviewApi.updateInterview(interview.id, { ...interview, status: 'confirmed' })
+    loadInterviews()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Confirm interview failed:', error)
+  }
+}
+
+const cancelInterview = async (interview) => {
+  const reason = prompt('请输入取消原因：')
+  if (!reason) return
+  try {
+    await interviewApi.updateInterview(interview.id, { ...interview, status: 'cancelled', cancel_reason: reason })
+    loadInterviews()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Cancel interview failed:', error)
+  }
+}
+
+const completeInterview = async (interview) => {
+  try {
+    await interviewApi.updateInterview(interview.id, { ...interview, status: 'completed' })
+    loadInterviews()
+    emit('update-stats')
+  } catch (error) {
+    console.error('Complete interview failed:', error)
+  }
+}
+
 const loadData = async () => {
   try {
     const resumeRes = await resumeApi.getResume(route.params.id)
@@ -210,6 +432,7 @@ const loadData = async () => {
     }
     
     loadMessages()
+    loadInterviews()
   } catch (error) {
     console.error('Failed to load data:', error)
   }
@@ -311,6 +534,10 @@ onMounted(() => {
   color: #333;
 }
 
+.cancel-reason {
+  color: #f56c6c;
+}
+
 .resume-text {
   padding: 16px;
   background-color: #fafafa;
@@ -379,6 +606,65 @@ onMounted(() => {
   gap: 12px;
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.interview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.interview-card {
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+.interview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.interview-round {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.interview-info {
+  margin-bottom: 12px;
+}
+
+.interview-info .info-row {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.interview-info .info-row:last-child {
+  margin-bottom: 0;
+}
+
+.interview-info .label {
+  width: 100px;
+  color: #999;
+  font-size: 14px;
+}
+
+.interview-info .value {
+  flex: 1;
+  font-size: 14px;
+}
+
+.interview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 4px 12px;
+  font-size: 12px;
 }
 
 .message-section {
@@ -447,5 +733,83 @@ onMounted(() => {
   padding: 10px;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+textarea.form-control {
+  resize: vertical;
 }
 </style>
