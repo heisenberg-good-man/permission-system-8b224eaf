@@ -56,6 +56,10 @@ class User(BaseModel):
     role: str
     email: str
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 mock_users = [
     User(id=1, name="张三", role="recruiter", email="zhangsan@company.com"),
     User(id=2, name="李四", role="candidate", email="lisi@example.com"),
@@ -219,8 +223,8 @@ def get_user(user_id: int):
     return user
 
 @app.post("/api/users/login")
-def login(email: str, password: str):
-    user = next((u for u in mock_users if u.email == email), None)
+def login(request: LoginRequest):
+    user = next((u for u in mock_users if u.email == request.email), None)
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
     return {"user": user, "token": f"token_{user.id}"}

@@ -7,7 +7,10 @@
 
     <div class="card" v-if="resume && job">
       <div class="job-info-section">
-        <h3>{{ job.title }}</h3>
+        <div class="job-title-row">
+          <h3>{{ job.title }}</h3>
+          <span :class="['status-tag', `status-${resume.status}`]">{{ getStatusText(resume.status) }}</span>
+        </div>
         <div class="job-meta">
           <span>{{ job.company }}</span>
           <span>{{ job.location }}</span>
@@ -15,44 +18,70 @@
         </div>
       </div>
 
-      <div class="resume-info">
-        <div class="info-row">
-          <span class="label">姓名</span>
-          <span class="value">{{ resume.candidate_name }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">联系电话</span>
-          <span class="value">{{ resume.phone }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">邮箱</span>
-          <span class="value">{{ resume.email }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">学历</span>
-          <span class="value">{{ resume.education }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">工作经验</span>
-          <span class="value">{{ resume.experience }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">技能</span>
-          <span class="value">{{ resume.skills }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">当前状态</span>
-          <span :class="['status-tag', `status-${resume.status}`]">{{ getStatusText(resume.status) }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">投递时间</span>
-          <span class="value">{{ formatDate(resume.created_at) }}</span>
+      <div class="resume-section">
+        <h3>我的简历信息</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">姓名</span>
+            <span class="value">{{ resume.candidate_name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">联系电话</span>
+            <span class="value">{{ resume.phone }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">邮箱</span>
+            <span class="value">{{ resume.email }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">学历</span>
+            <span class="value">{{ resume.education }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">工作经验</span>
+            <span class="value">{{ resume.experience }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">技能</span>
+            <span class="value">{{ resume.skills }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">投递时间</span>
+            <span class="value">{{ formatDate(resume.created_at) }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="resume-text">
+      <div class="resume-section">
         <h3>简历内容</h3>
-        <p>{{ resume.resume_text }}</p>
+        <div class="resume-text">
+          {{ resume.resume_text }}
+        </div>
+      </div>
+
+      <div class="resume-section">
+        <h3>处理进度</h3>
+        <div class="status-flow">
+          <div :class="['flow-item', { active: resume.status === 'applied', done: ['pending', 'interview', 'rejected'].includes(resume.status) }]">
+            <div class="flow-circle">1</div>
+            <span>已投递</span>
+          </div>
+          <div class="flow-arrow" v-if="['pending', 'interview', 'rejected'].includes(resume.status)">→</div>
+          <div :class="['flow-item', { active: resume.status === 'pending', done: ['interview', 'rejected'].includes(resume.status) }]">
+            <div class="flow-circle">2</div>
+            <span>待沟通</span>
+          </div>
+          <div class="flow-arrow" v-if="['interview', 'rejected'].includes(resume.status)">→</div>
+          <div :class="['flow-item', { active: resume.status === 'interview', done: resume.status === 'rejected' }]">
+            <div class="flow-circle">3</div>
+            <span>已约聊</span>
+          </div>
+          <div class="flow-arrow" v-if="resume.status === 'rejected'">→</div>
+          <div :class="['flow-item', { active: resume.status === 'rejected' }]">
+            <div class="flow-circle">✕</div>
+            <span>已拒绝</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -67,6 +96,9 @@
           <div class="msg-sender">{{ msg.sender_role === 'candidate' ? '我' : '招聘方' }}</div>
           <div class="msg-content">{{ msg.content }}</div>
           <div class="msg-time">{{ formatDate(msg.created_at) }}</div>
+        </div>
+        <div v-if="messages.length === 0" class="empty-messages">
+          <p>暂无沟通记录</p>
         </div>
       </div>
       <div class="message-input">
@@ -176,8 +208,15 @@ onMounted(() => {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.job-info-section h3 {
-  margin: 0 0 12px 0;
+.job-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.job-title-row h3 {
+  margin: 0;
   font-size: 20px;
 }
 
@@ -187,46 +226,102 @@ onMounted(() => {
   color: #666;
 }
 
-.resume-info {
+.resume-section {
   margin-bottom: 24px;
 }
 
-.info-row {
+.resume-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.info-item {
   display: flex;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  flex-direction: column;
+  padding: 12px;
+  background-color: #fafafa;
+  border-radius: 8px;
 }
 
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-row .label {
-  width: 100px;
+.info-item .label {
+  font-size: 12px;
   color: #999;
-  font-weight: 500;
+  margin-bottom: 4px;
 }
 
-.info-row .value {
-  flex: 1;
+.info-item .value {
+  font-size: 14px;
+  color: #333;
 }
 
 .resume-text {
-  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
+  line-height: 1.8;
+  color: #666;
+  white-space: pre-wrap;
+}
+
+.status-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 16px;
   background-color: #fafafa;
   border-radius: 8px;
 }
 
-.resume-text h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
+.flow-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
-.resume-text p {
-  margin: 0;
-  line-height: 1.8;
+.flow-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #999;
+}
+
+.flow-item.active .flow-circle {
+  background-color: #409eff;
+  color: white;
+}
+
+.flow-item.done .flow-circle {
+  background-color: #67c23a;
+  color: white;
+}
+
+.flow-item span {
+  font-size: 12px;
   color: #666;
+}
+
+.flow-item.active span {
+  color: #409eff;
+  font-weight: 500;
+}
+
+.flow-arrow {
+  color: #999;
+  font-size: 18px;
 }
 
 .message-section {
@@ -248,6 +343,12 @@ onMounted(() => {
 
 .message-item:last-child {
   margin-bottom: 0;
+}
+
+.empty-messages {
+  text-align: center;
+  padding: 20px;
+  color: #999;
 }
 
 .msg-sender {

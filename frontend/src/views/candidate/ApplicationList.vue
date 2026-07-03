@@ -2,6 +2,15 @@
   <div class="application-list">
     <div class="list-header">
       <h2>我的投递</h2>
+    </div>
+
+    <div class="filter-bar">
+      <input 
+        v-model="keywordFilter" 
+        type="text" 
+        placeholder="搜索职位名称、公司..." 
+        class="search-input"
+      />
       <select v-model="statusFilter" class="filter-select">
         <option value="">全部状态</option>
         <option value="applied">已投递</option>
@@ -17,6 +26,8 @@
           <tr>
             <th>职位名称</th>
             <th>公司</th>
+            <th>工作地点</th>
+            <th>薪资范围</th>
             <th>状态</th>
             <th>投递时间</th>
             <th>操作</th>
@@ -24,14 +35,16 @@
         </thead>
         <tbody>
           <tr v-for="item in filteredApplications" :key="item.resume.id">
-            <td>{{ item.job.title }}</td>
-            <td>{{ item.job.company }}</td>
+            <td>{{ item.job?.title || '未知职位' }}</td>
+            <td>{{ item.job?.company || '-' }}</td>
+            <td>{{ item.job?.location || '-' }}</td>
+            <td>{{ item.job?.salary || '-' }}</td>
             <td>
               <span :class="['status-tag', `status-${item.resume.status}`]">{{ getStatusText(item.resume.status) }}</span>
             </td>
             <td>{{ formatDate(item.resume.created_at) }}</td>
             <td>
-              <button class="btn btn-outline" @click="$router.push(`/candidate/application/${item.resume.id}`)">查看</button>
+              <button class="btn btn-outline" @click="viewDetail(item.resume.id)">查看详情</button>
             </td>
           </tr>
         </tbody>
@@ -40,7 +53,7 @@
       <div v-if="filteredApplications.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
         <p>暂无投递记录</p>
-        <button class="btn btn-primary" @click="$router.push('/candidate')">去浏览职位</button>
+        <button class="btn btn-primary" @click="goBrowse">去浏览职位</button>
       </div>
     </div>
   </div>
@@ -48,12 +61,15 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { jobApi, resumeApi } from '../../api'
 
+const router = useRouter()
 const { state } = useUserStore()
 const jobs = ref([])
 const resumes = ref([])
+const keywordFilter = ref('')
 const statusFilter = ref('')
 
 const getStatusText = (status) => {
@@ -76,12 +92,28 @@ const filteredApplications = computed(() => {
     }))
     .filter(item => item.job)
   
+  if (keywordFilter.value) {
+    const keyword = keywordFilter.value.toLowerCase()
+    result = result.filter(item => 
+      item.job.title.toLowerCase().includes(keyword) ||
+      item.job.company.toLowerCase().includes(keyword)
+    )
+  }
+  
   if (statusFilter.value) {
     result = result.filter(item => item.resume.status === statusFilter.value)
   }
   
   return result
 })
+
+const viewDetail = (resumeId) => {
+  router.push(`/candidate/application/${resumeId}`)
+}
+
+const goBrowse = () => {
+  router.push('/candidate')
+}
 
 const loadData = async () => {
   try {
@@ -108,20 +140,32 @@ onMounted(() => {
 }
 
 .list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .list-header h2 {
   margin: 0;
 }
 
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.search-input {
+  flex: 1;
+  max-width: 300px;
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+}
+
 .filter-select {
   padding: 8px 12px;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
+  min-width: 120px;
 }
 
 .empty-state {

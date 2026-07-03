@@ -6,48 +6,78 @@
     </div>
 
     <div class="card" v-if="resume">
-      <div class="resume-info">
-        <div class="info-row">
-          <span class="label">候选人</span>
-          <span class="value">{{ resume.candidate_name }}</span>
+      <div class="resume-header">
+        <div class="candidate-name">{{ resume.candidate_name }}</div>
+        <span :class="['status-tag', `status-${resume.status}`]">{{ getStatusText(resume.status) }}</span>
+      </div>
+
+      <div class="resume-summary">
+        <div class="summary-item">
+          <span class="summary-label">学历</span>
+          <span class="summary-value">{{ resume.education }}</span>
         </div>
-        <div class="info-row">
-          <span class="label">联系电话</span>
-          <span class="value">{{ resume.phone }}</span>
+        <div class="summary-item">
+          <span class="summary-label">经验</span>
+          <span class="summary-value">{{ resume.experience }}</span>
         </div>
-        <div class="info-row">
-          <span class="label">邮箱</span>
-          <span class="value">{{ resume.email }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">学历</span>
-          <span class="value">{{ resume.education }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">工作经验</span>
-          <span class="value">{{ resume.experience }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">技能</span>
-          <span class="value">{{ resume.skills }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">投递职位</span>
-          <span class="value">{{ jobTitle }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">当前状态</span>
-          <span :class="['status-tag', `status-${resume.status}`]">{{ getStatusText(resume.status) }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">投递时间</span>
-          <span class="value">{{ formatDate(resume.created_at) }}</span>
+        <div class="summary-item">
+          <span class="summary-label">技能</span>
+          <span class="summary-value">{{ resume.skills }}</span>
         </div>
       </div>
 
-      <div class="resume-text">
+      <div class="resume-section">
+        <h3>基本信息</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="label">联系电话</span>
+            <span class="value">{{ resume.phone }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">邮箱</span>
+            <span class="value">{{ resume.email }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">投递职位</span>
+            <span class="value">{{ jobTitle }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">投递时间</span>
+            <span class="value">{{ formatDate(resume.created_at) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="resume-section">
         <h3>简历内容</h3>
-        <p>{{ resume.resume_text }}</p>
+        <div class="resume-text">
+          {{ resume.resume_text }}
+        </div>
+      </div>
+
+      <div class="resume-section">
+        <h3>处理状态</h3>
+        <div class="status-flow">
+          <div :class="['flow-item', { active: resume.status === 'applied', done: ['pending', 'interview', 'rejected'].includes(resume.status) }]">
+            <div class="flow-circle">1</div>
+            <span>已投递</span>
+          </div>
+          <div class="flow-arrow" v-if="['pending', 'interview', 'rejected'].includes(resume.status)">→</div>
+          <div :class="['flow-item', { active: resume.status === 'pending', done: ['interview', 'rejected'].includes(resume.status) }]">
+            <div class="flow-circle">2</div>
+            <span>待沟通</span>
+          </div>
+          <div class="flow-arrow" v-if="['interview', 'rejected'].includes(resume.status)">→</div>
+          <div :class="['flow-item', { active: resume.status === 'interview', done: resume.status === 'rejected' }]">
+            <div class="flow-circle">3</div>
+            <span>已约聊</span>
+          </div>
+          <div class="flow-arrow" v-if="resume.status === 'rejected'">→</div>
+          <div :class="['flow-item', { active: resume.status === 'rejected' }]">
+            <div class="flow-circle">✕</div>
+            <span>已拒绝</span>
+          </div>
+        </div>
       </div>
 
       <div class="action-buttons">
@@ -87,6 +117,9 @@
           <div class="msg-content">{{ msg.content }}</div>
           <div class="msg-time">{{ formatDate(msg.created_at) }}</div>
         </div>
+        <div v-if="messages.length === 0" class="empty-messages">
+          <p>暂无沟通记录</p>
+        </div>
       </div>
       <div class="message-input">
         <input 
@@ -103,14 +136,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { resumeApi, jobApi, messageApi } from '../../api'
 
 const emit = defineEmits(['update-stats'])
 
 const route = useRoute()
-const router = useRouter()
 const { state } = useUserStore()
 
 const resume = ref(null)
@@ -169,12 +201,14 @@ const loadMessages = async () => {
 
 const loadData = async () => {
   try {
-    const [resumeRes, jobRes] = await Promise.all([
-      resumeApi.getResume(route.params.id),
-      jobApi.getJob(route.params.job_id)
-    ])
+    const resumeRes = await resumeApi.getResume(route.params.id)
     resume.value = resumeRes.data
-    jobTitle.value = jobRes.data.title
+    
+    if (resume.value.job_id) {
+      const jobRes = await jobApi.getJob(resume.value.job_id)
+      jobTitle.value = jobRes.data.title
+    }
+    
     loadMessages()
   } catch (error) {
     console.error('Failed to load data:', error)
@@ -203,51 +237,148 @@ onMounted(() => {
   margin: 0;
 }
 
-.resume-info {
-  margin-bottom: 24px;
-}
-
-.info-row {
+.resume-header {
   display: flex;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
 }
 
-.info-row:last-child {
-  border-bottom: none;
+.candidate-name {
+  font-size: 24px;
+  font-weight: bold;
 }
 
-.info-row .label {
-  width: 100px;
-  color: #999;
-  font-weight: 500;
-}
-
-.info-row .value {
-  flex: 1;
-}
-
-.resume-text {
+.resume-summary {
+  display: flex;
+  gap: 24px;
   margin-bottom: 24px;
   padding: 16px;
   background-color: #fafafa;
   border-radius: 8px;
 }
 
-.resume-text h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
+.summary-item {
+  display: flex;
+  flex-direction: column;
 }
 
-.resume-text p {
-  margin: 0;
+.summary-label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.summary-value {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.resume-section {
+  margin-bottom: 24px;
+}
+
+.resume-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+.info-item .label {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.info-item .value {
+  font-size: 14px;
+  color: #333;
+}
+
+.resume-text {
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
   line-height: 1.8;
   color: #666;
+  white-space: pre-wrap;
+}
+
+.status-flow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+.flow-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #999;
+}
+
+.flow-item.active .flow-circle {
+  background-color: #409eff;
+  color: white;
+}
+
+.flow-item.done .flow-circle {
+  background-color: #67c23a;
+  color: white;
+}
+
+.flow-item span {
+  font-size: 12px;
+  color: #666;
+}
+
+.flow-item.active span {
+  color: #409eff;
+  font-weight: 500;
+}
+
+.flow-arrow {
+  color: #999;
+  font-size: 18px;
 }
 
 .action-buttons {
   display: flex;
   gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .message-section {
@@ -269,6 +400,12 @@ onMounted(() => {
 
 .message-item:last-child {
   margin-bottom: 0;
+}
+
+.empty-messages {
+  text-align: center;
+  padding: 20px;
+  color: #999;
 }
 
 .msg-sender {

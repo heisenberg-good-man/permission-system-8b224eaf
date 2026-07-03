@@ -9,7 +9,7 @@
     </header>
 
     <nav class="sidebar">
-      <div class="nav-item" :class="{ active: $route.path === '/recruiter' }">
+      <div class="nav-item" :class="{ active: ['/recruiter', '/recruiter/jobs'].includes($route.path) }">
         <router-link to="/recruiter">职位管理</router-link>
       </div>
       <div class="nav-item" :class="{ active: $route.path === '/recruiter/applications' }">
@@ -18,7 +18,7 @@
     </nav>
 
     <main class="main-content">
-      <div v-if="showStats && stats" class="stats-row">
+      <div v-if="showStats" class="stats-row">
         <div class="stat-card">
           <div class="stat-icon">📋</div>
           <div class="stat-info">
@@ -54,20 +54,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { statsApi } from '../../api'
 
 defineExpose({ loadStats })
 
 const router = useRouter()
+const route = useRoute()
 const { state, logout } = useUserStore()
 
 const currentUser = computed(() => state.currentUser)
-const stats = ref(null)
+const stats = ref({
+  jobs_count: 0,
+  resumes_count: 0,
+  pending_count: 0,
+  interview_count: 0
+})
+
 const showStats = computed(() => {
-  return ['/recruiter', '/recruiter/applications'].includes(router.currentRoute.value.path)
+  return ['/recruiter', '/recruiter/applications'].includes(route.path)
 })
 
 const handleLogout = () => {
